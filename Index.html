@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comecocos Portabilidad · MásOrange</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: #0A0A0F;
+  color: #F0F0F8;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 8px 32px;
+  user-select: none;
+}
+
+#header { text-align:center; margin-bottom:10px; }
+#header h1 { font-size:22px; font-weight:900; letter-spacing:3px; color:#FF5C00; }
+#header p  { color:#6B6B88; font-size:11px; margin-top:2px; }
+
+#hud {
+  display:flex; gap:8px; justify-content:center;
+  margin-bottom:10px; flex-wrap:wrap;
+}
+.hud-box {
+  background:#1A1A26;
+  border:1px solid rgba(255,92,0,0.2);
+  border-radius:9px;
+  padding:6px 14px;
+  font-size:13px; font-weight:800;
+}
+
+#canvas-wrap { position:relative; }
+
+canvas {
+  display:block;
+  background:#000;
+  border-radius:12px;
+  border:2px solid #FF5C00;
+  box-shadow: 0 0 30px rgba(255,92,0,0.2);
+}
+
+/* OVERLAYS */
+.overlay {
+  position:absolute; inset:0;
+  background:rgba(0,0,0,0.93);
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:12px; border-radius:12px;
+  padding:28px; text-align:center;
+  z-index:10;
+}
+.overlay.hidden { display:none; }
+
+.ov-title { font-size:38px; font-weight:900; letter-spacing:4px; color:#FF5C00; text-shadow:0 0 20px #FF5C00; }
+.ov-sub   { color:#6B6B88; font-size:13px; max-width:340px; line-height:1.7; }
+.ov-score { color:#FFD600; font-family:monospace; font-size:26px; font-weight:700; }
+
+.btn {
+  background:#FF5C00; border:none; color:white;
+  font-family:'Segoe UI',Arial,sans-serif;
+  font-weight:800; font-size:15px;
+  padding:12px 32px; border-radius:10px;
+  cursor:pointer; transition:background 0.2s;
+}
+.btn:hover { background:#FF8C00; }
+.btn-sm { font-size:13px; padding:10px 24px; }
+
+/* QUESTION POPUP */
+#q-popup {
+  position:absolute; inset:0;
+  background:rgba(0,0,0,0.94);
+  display:flex; align-items:center; justify-content:center;
+  z-index:20; border-radius:12px; padding:10px;
+}
+#q-popup.hidden { display:none; }
+
+#q-card {
+  background:#1A1A26;
+  border:2px solid #FF5C00;
+  border-radius:16px; padding:20px;
+  max-width:430px; width:100%;
+  box-shadow: 0 0 40px rgba(255,92,0,0.3);
+}
+
+#q-badge {
+  font-size:10px; font-weight:800;
+  padding:3px 12px; border-radius:20px;
+  display:inline-block; margin-bottom:8px;
+  letter-spacing:1px;
+  background:rgba(255,92,0,0.15); color:#FF5C00;
+}
+
+#q-timer-wrap { height:5px; background:#1C1C28; border-radius:3px; margin-bottom:12px; overflow:hidden; }
+#q-timer-bar  { height:100%; border-radius:3px; background:#00D084; transition:width 0.9s linear; }
+
+#q-text {
+  font-size:14px; font-weight:800; color:white; line-height:1.45; margin-bottom:14px;
+  background:rgba(255,255,255,0.04); border-radius:8px; padding:10px 12px;
+  border-left:3px solid #FF5C00;
+}
+
+#q-opts { display:flex; flex-direction:column; gap:8px; }
+
+.q-opt {
+  background:#1C1C28;
+  border:2px solid rgba(255,92,0,0.2);
+  color:#F0F0F8;
+  font-family:'Segoe UI',Arial,sans-serif;
+  font-size:12px; font-weight:700;
+  padding:10px 12px; border-radius:9px;
+  cursor:pointer; text-align:left;
+  line-height:1.35; transition:all 0.15s;
+  display:flex; gap:8px; align-items:flex-start;
+}
+.q-opt:hover:not(:disabled) { border-color:#FF5C00; color:white; background:rgba(255,92,0,0.08); }
+.q-opt:disabled { cursor:default; }
+.q-opt.correct { background:rgba(0,208,132,0.15); border-color:#00D084; color:#00D084; }
+.q-opt.wrong   { background:rgba(255,51,102,0.12); border-color:#FF3366; color:#FF3366; }
+
+.opt-letter {
+  background:rgba(255,92,0,0.2); border-radius:4px;
+  padding:1px 6px; font-size:11px; font-weight:900;
+  flex-shrink:0; color:#FF5C00;
+}
+
+#q-feedback {
+  margin-top:12px; font-size:12px; color:#CCC;
+  line-height:1.55; background:rgba(255,255,255,0.04);
+  border-radius:8px; padding:10px 12px; display:none;
+}
+#q-feedback.show { display:block; }
+
+/* D-PAD */
+#dpad { display:flex; flex-direction:column; align-items:center; gap:5px; margin-top:12px; }
+#dpad-row { display:flex; gap:5px; }
+.dpad-btn {
+  width:44px; height:44px;
+  background:#1C1C28;
+  border:1px solid rgba(255,92,0,0.25);
+  border-radius:8px; color:#F0F0F8;
+  font-size:18px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:background 0.15s;
+}
+.dpad-btn:hover  { background:#2a2a3a; }
+.dpad-btn:active { background:#FF5C00; }
+.dpad-space { width:44px; height:44px; }
+
+/* LEGEND */
+#legend {
+  display:flex; gap:12px; justify-content:center;
+  margin-top:12px; flex-wrap:wrap;
+  font-size:11px; color:#6B6B88;
+}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>👾 COMECOCOS · ROLE PLAY</h1>
+  <p>6 Fases · Situaciones reales · ¿Qué harías tú como agente?</p>
+</div>
+
+<div id="hud">
+  <div class="hud-box" style="color:#FF5C00">🎯 <span id="h-score">0</span></div>
+  <div class="hud-box" style="color:#00D084">✅ <span id="h-correct">0</span> aciertos</div>
+  <div class="hud-box" style="color:#4DA8FF">📶 Nv.<span id="h-level">1</span></div>
+  <div class="hud-box" style="font-size:18px;" id="h-lives">😮😮😮</div>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="cvs"></canvas>
+
+  <!-- START -->
+  <div class="overlay" id="ov-start">
+    <div class="ov-title">COMECOCOS</div>
+    <div style="font-size:36px">😮</div>
+    <div class="ov-sub">
+      Muévete por el laberinto y come puntos.<br>
+      Las <strong style="color:#FFD600">❓ amarillas</strong> muestran una
+      <strong style="color:#FF5C00">situación real de llamada</strong>:
+      elige cómo actuarías como agente.<br>
+      ¡Acierta o pierdes una vida! Los fantasmas salen poco a poco.
+    </div>
+    <button class="btn" onclick="startGame()">▶ JUGAR</button>
+    <div style="color:#6B6B88;font-size:11px">⬆⬇⬅➡ Teclado · D-pad abajo para móvil</div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div class="overlay hidden" id="ov-dead">
+    <div class="ov-title" style="color:#FF3366">GAME OVER</div>
+    <div style="font-size:38px">💀</div>
+    <div class="ov-score" id="final-score">0 puntos</div>
+    <div style="color:#6B6B88;font-size:13px" id="final-correct">0 situaciones correctas</div>
+    <button class="btn btn-sm" onclick="startGame()">🔄 Otra partida</button>
+  </div>
+
+  <!-- QUESTION -->
+  <div id="q-popup" class="hidden">
+    <div id="q-card">
+      <div id="q-badge">F2 · SONDEO — SITUACIÓN REAL</div>
+      <div id="q-timer-wrap"><div id="q-timer-bar" style="width:100%"></div></div>
+      <div id="q-text">Pregunta...</div>
+      <div id="q-opts"></div>
+      <div id="q-feedback"></div>
+    </div>
+  </div>
+</div>
+
+<!-- D-PAD -->
+<div id="dpad">
+  <button class="dpad-btn" onclick="setPacDir(0,-1)">▲</button>
+  <div id="dpad-row">
+    <button class="dpad-btn" onclick="setPacDir(-1,0)">◀</button>
+    <div class="dpad-space"></div>
+    <button class="dpad-btn" onclick="setPacDir(1,0)">▶</button>
+  </div>
+  <button class="dpad-btn" onclick="setPacDir(0,1)">▼</button>
+</div>
+
+<div id="legend">
+  <span><span style="color:#FF8C42">●</span> Punto +10</span>
+  <span><span style="color:#FF5C00;font-size:15px">●</span> Superpunto +50 😱</span>
+  <span><span style="color:#FFD600;font-weight:800">❓</span> Situación +100</span>
+  <span><span style="color:#00D084">👻</span> Fantasma +200</span>
+</div>
+
+<script>
+// ── CONFIG ───────────────────────────────────────────────────
+const CELL    = 38;
+const COLS    = 15;
+const ROWS    = 13;
+const CW      = COLS * CELL;
+const CH      = ROWS * CELL;
+const PAC_MS  = 230;
+const GHO_MS  = 390;
+const G_DELAY = 160;
+
+// ── MAZE ─────────────────────────────────────────────────────
+const TMPL = [
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,3,2,2,2,2,2,1,2,2,2,2,2,3,1],
+  [1,2,1,1,2,1,2,1,2,1,2,1,1,2,1],
+  [1,2,1,4,2,2,2,2,2,2,2,4,1,2,1],
+  [1,2,2,2,2,1,0,0,0,1,2,2,2,2,1],
+  [1,1,1,2,1,0,0,0,0,0,1,2,1,1,1],
+  [1,2,2,2,1,0,0,0,0,0,1,2,2,2,1],
+  [1,1,1,2,1,0,0,0,0,0,1,2,1,1,1],
+  [1,2,2,2,2,1,0,0,0,1,2,2,2,2,1],
+  [1,2,1,4,2,2,2,2,2,2,2,4,1,2,1],
+  [1,2,1,1,2,1,2,1,2,1,2,1,1,2,1],
+  [1,3,2,2,2,2,2,1,2,2,2,2,2,3,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+];
+
+const G_CFG = [
+  {col:6,row:6,dc:1, dr:0, color:"#FF3366",name:"PRECIO"  },
+  {col:7,row:6,dc:-1,dr:0, color:"#4DA8FF",name:"COBERT." },
+  {col:8,row:6,dc:0, dr:1, color:"#FFD600",name:"OFERTA"  },
+  {col:7,row:7,dc:0, dr:-1,color:"#00D084",name:"OBJETO." },
+];
+
+const FASE_COLORS = {
+  "F1 · ACOGIDA":    "#FF5C00",
+  "F2 · SONDEO":     "#FFD600",
+  "F3 · OFERTA":     "#E67E22",
+  "F4 · OBJECIONES": "#FF3366",
+  "F5 · CIERRE":     "#00D084",
+  "F6 · DESPEDIDA":  "#4DA8FF",
+};
+
+// ── QUESTIONS ────────────────────────────────────────────────
+const QUESTIONS = [
+  {fase:"F1 · ACOGIDA",
+   q:"Llamas tú al cliente (emisión). ¿Cómo empiezas correctamente?",
+   opts:["«Buenos días, soy del departamento de portabilidad de Orange. Veo que tiene una porta en curso, ¿es usted el titular?»","«Hola, ¿está el señor García? Le llamo de Orange para hacerle una oferta»","«Buenos días, le llamo porque nos consta que se quiere ir. ¿Por qué nos abandona?»","«Hola, soy María de Orange. ¿Puedo hablar con el titular?»"],
+   ok:0, exp:"Correcta: te identificas, mencionas portabilidad y confirmas el titular. La B no menciona porta, la C es agresiva, la D no menciona portabilidad."},
+
+  {fase:"F1 · ACOGIDA",
+   q:"El cliente llama (FRONT). Antes de continuar, ¿qué debes hacer obligatoriamente?",
+   opts:["Preguntar directamente por qué quiere irse","Presentarte y pasar al sondeo sin demora","Enviar un SMS con código de seguridad y pedírselo antes de continuar","Revisar en pantalla qué productos tiene y empezar a ofrecer"],
+   ok:2, exp:"En llamadas FRONT es obligatorio aplicar la política de seguridad: envías un SMS con código y lo solicitas antes de continuar."},
+
+  {fase:"F1 · ACOGIDA",
+   q:"Te has identificado y confirmado la línea. ¿Qué dices antes de entrar al sondeo?",
+   opts:["«Vamos a ver qué puedo hacer por usted»","«Le llamo porque tengo una oferta exclusiva»","«Antes de nada, quería agradecerle los X años que lleva con nosotros»","«Entiendo que quiere irse, cuénteme»"],
+   ok:2, exp:"Agradecer el tiempo como cliente es un criterio obligatorio de la Acogida. Genera vínculo emocional antes del sondeo."},
+
+  {fase:"F2 · SONDEO",
+   q:"El cliente dice: «Quiero portarme a Digi». ¿Cuál es tu primera pregunta?",
+   opts:["«Pues nosotros tenemos red propia y Digi no, le conviene quedarse»","«¿Qué le ha llevado a tomar esa decisión?»","«¿Cuánto le ofrecen exactamente?»","«Déjeme ver qué puedo ofrecerle para que se quede»"],
+   ok:1, exp:"C1 del Sondeo: siempre preguntar el motivo antes de proponer nada. Las otras opciones se saltan el sondeo y van directo a la oferta."},
+
+  {fase:"F2 · SONDEO",
+   q:"El cliente dice que el precio es más barato en la competencia. ¿Qué preguntas a continuación?",
+   opts:["«¿Y cuánto le cobran? Seguro que le igualamos»","«¿Qué servicios tiene contratados ahora mismo con Orange?»","«¿Sabe que Digi tiene red alquilada?»","«¿Cuánto tiempo lleva con Orange?»"],
+   ok:1, exp:"C2 del Sondeo: antes de argumentar, revisar qué tiene contratado. Si no sabes lo que tiene, no puedes personalizar la oferta."},
+
+  {fase:"F2 · SONDEO",
+   q:"Ya sabes el motivo y los productos. ¿Qué preguntas para completar el sondeo?",
+   opts:["«¿Le importaría si le hago una oferta ahora?»","«¿Qué le ha llamado la atención de lo que le ofrecen en la otra compañía?»","«¿Tiene televisión con nosotros?»","«¿Cuándo tiene pensado hacer el cambio?»"],
+   ok:1, exp:"C3 del Sondeo: investigar qué le atrajo de la competencia. Solo así puedes construir un argumento real y personalizado."},
+
+  {fase:"F2 · SONDEO",
+   q:"¿Cuál es la señal de que has hecho bien el sondeo?",
+   opts:["Has preguntado motivo, productos actuales y atractivo de la competencia","Has hablado más que el cliente para demostrar conocimiento","Has pasado rápido al sondeo para llegar cuanto antes a la oferta","Has preguntado el motivo y ya has propuesto la oferta"],
+   ok:0, exp:"Un sondeo completo cubre los 3 obligatorios: motivo (C1), productos actuales (C2) y atractivo de la competencia (C3)."},
+
+  {fase:"F3 · OFERTA",
+   q:"El cliente se va a Digi por precio. ¿Cómo presentas la oferta?",
+   opts:["«Le voy a aplicar el mejor precio que tenemos»","«Tengo para usted, por su fidelidad, una propuesta exclusiva que le supone un ahorro de X€ al mes»","«Mire, si se queda le pongo fibra más barata»","«Orange tiene muchas ventajas sobre Digi»"],
+   ok:1, exp:"La oferta debe ser exclusiva/personalizada, explicar el beneficio concreto y cuantificar el ahorro. Las otras son genéricas o no cuantifican."},
+
+  {fase:"F3 · OFERTA",
+   q:"Estás explicando que Orange tiene IP exclusiva. ¿Cómo lo argumentas bien?",
+   opts:["«Orange tiene IP exclusiva, que es mejor que la de Digi»","«Tenemos IP exclusiva: mayor estabilidad, sin bloqueos, mejor rendimiento para teletrabajo y gaming»","«Digi tiene IP compartida, que es muy mala»","«La IP exclusiva es una característica técnica diferencial»"],
+   ok:1, exp:"No basta con nombrar la característica. Hay que enlazarla con el beneficio concreto para ese cliente (estabilidad, gaming, teletrabajo)."},
+
+  {fase:"F3 · OFERTA",
+   q:"Has presentado la oferta. ¿Cómo haces el cierre asumido correctamente?",
+   opts:["«¿Qué le parece la oferta? ¿Le interesa?»","«Si le parece bien, podríamos valorar dejarlo así»","«Perfecto, confírmeme sus datos y dejamos la oferta aplicada ahora mismo»","«¿Necesita pensárselo o puedo aplicarle algo hoy?»"],
+   ok:2, exp:"El cierre asumido da por hecho el sí y pide datos directamente. No se pregunta si le interesa; se actúa como si ya hubiera aceptado."},
+
+  {fase:"F4 · OBJECIONES",
+   q:"El cliente dice: «No, gracias, ya tengo decidido irme». ¿Qué haces?",
+   opts:["«Entiendo, pues le deseo lo mejor en la otra compañía»","«¿Está seguro? Es una lástima...»","«Le entiendo, y precisamente por eso quiero que vea algo antes de decidir definitivamente»","«Si se va ahora no podremos hacer nada»"],
+   ok:2, exp:"C1 de Objeciones: no ceder en la primera negativa. Debes lanzar al menos un argumento. Nunca aceptes el 'no' sin intentarlo."},
+
+  {fase:"F4 · OBJECIONES",
+   q:"El cliente dice: «Ya debíais haberme dado esto antes, ahora es tarde». ¿Qué respondes?",
+   opts:["«Tiene razón, lo siento mucho»","«Es que no depende de mí, son las políticas de empresa»","«Entiendo que pueda parecerle así. Las condiciones cambian, como en cualquier comercio. Lo importante es que ahora puedo ofrecérselo»","«Si se queda ahora, el mes que viene le mejoramos la oferta»"],
+   ok:2, exp:"Objeción 'llegamos tarde': reconoce sin excusas, contextualiza y redirige al beneficio actual. Nunca prometas mejoras futuras sin certeza."},
+
+  {fase:"F4 · OBJECIONES",
+   q:"El cliente dice: «Me han dicho que con Digi el precio es para siempre». ¿Qué respondes?",
+   opts:["«Eso es mentira, Digi sube los precios constantemente»","«'Para siempre' significa hasta que cambien las condiciones comerciales. Orange le garantiza 12 meses por contrato»","«Nosotros también le garantizamos el precio para siempre»","«No se fíe, llame a Digi y pídalo por escrito»"],
+   ok:1, exp:"Hay que desmontar el 'para siempre' con rigor: en el sector significa 'hasta cambio de condiciones'. Orange ofrece 12 meses garantizados por contrato."},
+
+  {fase:"F4 · OBJECIONES",
+   q:"El cliente tiene una incidencia de cobertura sin resolver desde hace un mes. ¿Cómo gestionas esto?",
+   opts:["«Lo siento, pero eso lo tiene que gestionar el departamento técnico»","«Voy a escalar su caso ahora mismo al equipo técnico. Además tiene disponible Llamadas WiFi para cobertura en interior»","«En Vodafone tampoco tendría mejor cobertura»","«Anote el número de incidencia y llame al servicio técnico»"],
+   ok:1, exp:"Objeción de cobertura: empatiza, ofrece solución concreta (escalada técnica + Llamadas WiFi) y no derivas. Hacerte cargo desde la llamada es clave."},
+
+  {fase:"F4 · OBJECIONES",
+   q:"El cliente dice que si cancela tendrá que pagar penalización. ¿Qué le dices?",
+   opts:["«Pues sí, eso es lo que hay en el contrato»","«Orange cubre hasta 150€ + IVA en penalizaciones, o hasta 314€ si viene de Vodafone»","«Llame a su operador y dígales que no va a pagar»","«Depende de cuándo firmó el contrato»"],
+   ok:1, exp:"Orange cubre penalizaciones: hasta 150€+IVA en general y hasta 314€ para clientes de Vodafone. Es un argumento de cierre muy potente."},
+
+  {fase:"F5 · CIERRE",
+   q:"El cliente ACEPTA quedarse. ¿Qué le explicas primero?",
+   opts:["Le felicitas y le dices que todo está hecho","Le explicas cómo cancelar la portabilidad: a qué número llamar, qué decir, que llame nada más colgar","Le informas de la última factura y los equipos","Le preguntas si tiene más líneas en porta"],
+   ok:1, exp:"A1 del Cierre (acepta): lo primero es explicar cómo cancelar la porta paso a paso. Si no cancela, la retención no sirve de nada."},
+
+  {fase:"F5 · CIERRE",
+   q:"El cliente va a cancelar la porta. ¿Qué le adviertes sobre el operador destino?",
+   opts:["Nada, ya tiene toda la información","Que puede tardar varios días en tramitarse","Que el operador destino puede ponerse difícil, hacerle esperar o intentar disuadirle; que no ceda y que si le cuelgan, que vuelva a llamar","Que guarde el número de contrato por si hay problemas"],
+   ok:2, exp:"A3 del Cierre: advertir sobre tácticas del operador destino (esperas largas, contraoferta, intentos de disuasión). Es obligatorio proteger la retención."},
+
+  {fase:"F5 · CIERRE",
+   q:"El cliente RECHAZA la oferta. ¿Qué le informas obligatoriamente?",
+   opts:["Le das las gracias y cierras la llamada","Le dices que puede volver a llamar si cambia de opinión","Le informas del plazo para rectificar, de la devolución de equipos y de lo que incluirá la última factura","Le preguntas por qué no acepta para intentarlo una vez más"],
+   ok:2, exp:"Si rechaza: R1 (plazo para rectificar), R2 (devolución de equipos si los tiene), R3 (última factura). Son criterios obligatorios del bloque de rechazo."},
+
+  {fase:"F6 · DESPEDIDA",
+   q:"El cliente se ha RETENIDO. ¿Cómo te despides?",
+   opts:["«Pues nada, que vaya bien»","«Cualquier cosa que necesite, estamos aquí»","«Me alegra mucho que se haya decidido a quedarse. Ha tomado la mejor decisión y vamos a seguir cuidándole. ¡Hasta pronto!»","«Bien, pues ya le llegará la confirmación. Adiós»"],
+   ok:2, exp:"C3 de Despedida (retenido): felicitar la decisión, reforzar el valor y agradecer la confianza con calidez genuina. Nunca una despedida mecánica."},
+
+  {fase:"F6 · DESPEDIDA",
+   q:"El cliente NO se ha retenido. ¿Cómo cierras la llamada?",
+   opts:["«Bueno, si eso es lo que quiere... Adiós»","«Es una lástima que se vaya. Le deseo lo mejor y recuerde que las puertas de Orange siempre estarán abiertas»","«Pues en Digi ya verá lo que le espera»","«Cuando quiera cancelar ya sabe a quién llamar»"],
+   ok:1, exp:"C4 de Despedida (no retenido): lamentar con calidez, sin hostilidad, y dejar la puerta abierta. El tono al despedirse de un cliente perdido dice mucho de la marca."},
+
+  {fase:"F6 · DESPEDIDA",
+   q:"El cliente dice que lo tiene que pensar. ¿Cómo cierras la llamada?",
+   opts:["«Claro, tómese su tiempo. Adiós»","«De acuerdo. Si necesita algo, llame al número de atención al cliente»","«Por supuesto. Le dejo el número directo para que me llame cuando lo tenga claro, y le tengo la oferta guardada»","«Si no decide hoy, mañana ya no puedo garantizarle esta oferta»"],
+   ok:2, exp:"C5 de Despedida (lo piensa): facilitar número de contacto directo y confirmar que la oferta está guardada. Nunca presionar ni crear urgencia falsa."},
+];
+
+// ── STATE ─────────────────────────────────────────────────────
+const DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
+let maze, pac, ghosts, score, lives, correct, level, scared;
+let qQueue, qIdx, paused, gameOver;
+let currentQ = null;
+let pacAcc=0, ghoAcc=0, mthAcc=0, tickN=0;
+let lastT=0, raf=null, timerInterval=null, timerVal=100;
+
+const canvas = document.getElementById('cvs');
+canvas.width  = CW;
+canvas.height = CH;
+const ctx = canvas.getContext('2d');
+
+function shuffle(a){ return [...a].sort(()=>Math.random()-0.5); }
+function buildMaze(){ return TMPL.map(r=>[...r]); }
+function totalDots(m){ return m.flat().filter(v=>v===2||v===3||v===4).length; }
+function walkable(m,c,r){ if(r<0||r>=ROWS||c<0||c>=COLS) return false; return m[r][c]!==1; }
+
+function initState(){
+  maze   = buildMaze();
+  pac    = {col:7,row:6,dc:0,dr:0,nextDc:0,nextDr:0,mouth:0.15,mdir:1};
+  ghosts = G_CFG.map((g,i)=>({col:g.col,row:g.row,dc:g.dc,dr:g.dr,
+             color:g.color,name:g.name,release:(i+1)*G_DELAY,released:false}));
+  score=0; lives=3; correct=0; level=1; scared=0;
+  qQueue=shuffle(QUESTIONS); qIdx=0;
+  paused=false; gameOver=false;
+  pacAcc=0; ghoAcc=0; mthAcc=0; tickN=0;
+}
+
+// ── HUD UPDATE ───────────────────────────────────────────────
+function updateHUD(){
+  document.getElementById('h-score').textContent   = score;
+  document.getElementById('h-correct').textContent = correct;
+  document.getElementById('h-level').textContent   = level;
+  let lv='';
+  for(let i=0;i<3;i++) lv += i<lives?'😮':'💀';
+  document.getElementById('h-lives').textContent = lv;
+}
+
+// ── DRAW ─────────────────────────────────────────────────────
+function draw(){
+  ctx.fillStyle='#000';
+  ctx.fillRect(0,0,CW,CH);
+  const now=Date.now();
+
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const v=maze[r][c];
+      const x=c*CELL, y=r*CELL, cx2=x+CELL/2, cy2=y+CELL/2;
+      if(v===1){
+        ctx.fillStyle='#080830';
+        ctx.fillRect(x,y,CELL,CELL);
+        ctx.strokeStyle='#2222bb'; ctx.lineWidth=1.5;
+        ctx.strokeRect(x+1,y+1,CELL-2,CELL-2);
+      } else if(v===2){
+        ctx.fillStyle='#FF8C42';
+        ctx.beginPath(); ctx.arc(cx2,cy2,3.5,0,Math.PI*2); ctx.fill();
+      } else if(v===3){
+        const p=0.65+0.35*Math.sin(now/220);
+        ctx.fillStyle=`rgba(255,92,0,${p})`;
+        ctx.shadowBlur=14; ctx.shadowColor='#FF5C00';
+        ctx.beginPath(); ctx.arc(cx2,cy2,8,0,Math.PI*2); ctx.fill();
+        ctx.shadowBlur=0;
+      } else if(v===4){
+        const p=0.7+0.3*Math.sin(now/260+1);
+        ctx.fillStyle=`rgba(255,214,0,${p})`;
+        ctx.shadowBlur=10; ctx.shadowColor='#FFD600';
+        ctx.beginPath(); ctx.arc(cx2,cy2,9,0,Math.PI*2); ctx.fill();
+        ctx.shadowBlur=0;
+        ctx.fillStyle='#000'; ctx.font='bold 12px sans-serif';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText('?',cx2,cy2+1);
+      }
+    }
+  }
+
+  // PAC-MAN
+  const angle=Math.atan2(pac.dr,pac.dc)||0;
+  ctx.save();
+  ctx.translate(pac.col*CELL+CELL/2, pac.row*CELL+CELL/2);
+  ctx.rotate(angle);
+  ctx.fillStyle='#FFD600'; ctx.shadowBlur=16; ctx.shadowColor='#FFD600';
+  ctx.beginPath(); ctx.moveTo(0,0);
+  ctx.arc(0,0,CELL/2-3,pac.mouth*Math.PI,(2-pac.mouth)*Math.PI);
+  ctx.closePath(); ctx.fill(); ctx.shadowBlur=0; ctx.restore();
+
+  // GHOSTS
+  ghosts.forEach(g=>{
+    if(!g.released) return;
+    const sc=scared>0;
+    const gx=g.col*CELL+CELL/2, gy=g.row*CELL+CELL/2, rc=CELL/2-3;
+    let col=g.color;
+    if(sc) col=scared<20?(Math.floor(now/280)%2===0?'#fff':'#1111ee'):'#1111ee';
+    ctx.fillStyle=col; ctx.shadowBlur=8; ctx.shadowColor=col;
+    ctx.beginPath();
+    ctx.arc(gx,gy-rc/3,rc,Math.PI,0);
+    ctx.lineTo(gx+rc,gy+rc*0.9);
+    for(let i=4;i>=0;i--){
+      const wx=gx-rc+(rc*2/4)*i;
+      ctx.lineTo(wx,i%2===0?gy+rc*0.9:gy+rc*0.35);
+    }
+    ctx.lineTo(gx-rc,gy+rc*0.9);
+    ctx.closePath(); ctx.fill(); ctx.shadowBlur=0;
+    if(!sc){
+      ctx.fillStyle='white';
+      ctx.beginPath(); ctx.arc(gx-5,gy-rc/2,4,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(gx+5,gy-rc/2,4,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#000';
+      ctx.beginPath(); ctx.arc(gx-5+g.dc*2,gy-rc/2+g.dr*2,2,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(gx+5+g.dc*2,gy-rc/2+g.dr*2,2,0,Math.PI*2); ctx.fill();
+    }
+  });
+}
+
+// ── GAME STEPS ───────────────────────────────────────────────
+function stepPac(){
+  if((pac.nextDc||pac.nextDr) && walkable(maze,pac.col+pac.nextDc,pac.row+pac.nextDr)){
+    pac.dc=pac.nextDc; pac.dr=pac.nextDr;
+  }
+  if(walkable(maze,pac.col+pac.dc,pac.row+pac.dr)){
+    pac.col+=pac.dc; pac.row+=pac.dr;
+  }
+  if(pac.col<0)    pac.col=COLS-1;
+  if(pac.col>=COLS) pac.col=0;
+
+  const cell=maze[pac.row][pac.col];
+  if(cell===2){ maze[pac.row][pac.col]=0; score+=10; }
+  else if(cell===3){ maze[pac.row][pac.col]=0; score+=50; scared=80; }
+  else if(cell===4){
+    maze[pac.row][pac.col]=0;
+    paused=true;
+    showQuestion();
+    return;
+  }
+}
+
+function stepGhosts(){
+  ghosts.forEach((g,i)=>{
+    if(!g.released){
+      if(tickN>=g.release){ g.released=true; g.col=7; g.row=4; g.dc=(i%2===0)?1:-1; g.dr=0; }
+      return;
+    }
+    const opts=DIRS.filter(([dc,dr])=>{
+      if(dc===-g.dc&&dr===-g.dr) return false;
+      return walkable(maze,g.col+dc,g.row+dr);
+    });
+    const choices=opts.length?opts:DIRS.filter(([dc,dr])=>walkable(maze,g.col+dc,g.row+dr));
+    if(!choices.length) return;
+    let best;
+    if(scared>0){
+      best=choices[Math.floor(Math.random()*choices.length)];
+    } else if(i===0){
+      best=choices.reduce((b,d)=>{
+        const d1=(g.col+d[0]-pac.col)**2+(g.row+d[1]-pac.row)**2;
+        const d2=(g.col+b[0]-pac.col)**2+(g.row+b[1]-pac.row)**2;
+        return d1<d2?d:b;
+      });
+    } else {
+      best=Math.random()<0.45?choices[Math.floor(Math.random()*choices.length)]:
+        choices.reduce((b,d)=>{
+          const d1=(g.col+d[0]-pac.col)**2+(g.row+d[1]-pac.row)**2;
+          const d2=(g.col+b[0]-pac.col)**2+(g.row+b[1]-pac.row)**2;
+          return d1<d2?d:b;
+        });
+    }
+    g.dc=best[0]; g.dr=best[1];
+    g.col+=g.dc; g.row+=g.dr;
+  });
+}
+
+function checkCollisions(){
+  ghosts.forEach((g,i)=>{
+    if(!g.released) return;
+    if(g.col===pac.col && g.row===pac.row){
+      if(scared>0){
+        g.released=false; g.col=G_CFG[i].col; g.row=G_CFG[i].row; g.release=60;
+        score+=200; updateHUD();
+      } else {
+        loseLife();
+      }
+    }
+  });
+}
+
+function loseLife(){
+  lives--;
+  updateHUD();
+  if(lives<=0){ endGame(); return; }
+  pac.col=7; pac.row=6; pac.dc=0; pac.dr=0; pac.nextDc=0; pac.nextDr=0;
+  ghosts.forEach((g,i)=>{ g.released=false; g.col=G_CFG[i].col; g.row=G_CFG[i].row; g.release=(i+1)*G_DELAY; });
+  tickN=0;
+}
+
+function endGame(){
+  paused=true; gameOver=true;
+  document.getElementById('final-score').textContent   = score+' puntos';
+  document.getElementById('final-correct').textContent = correct+' situaciones resueltas correctamente';
+  document.getElementById('ov-dead').classList.remove('hidden');
+}
+
+// ── MAIN LOOP ────────────────────────────────────────────────
+function loop(ts){
+  const dt = ts-lastT; lastT=ts;
+  if(!paused){
+    pacAcc+=dt; ghoAcc+=dt; mthAcc+=dt;
+    if(mthAcc>40){
+      mthAcc=0;
+      pac.mouth+=0.055*pac.mdir;
+      if(pac.mouth>0.38||pac.mouth<0.02) pac.mdir*=-1;
+    }
+    if(pacAcc>=PAC_MS){
+      pacAcc=0;
+      stepPac();
+      if(scared>0) scared--;
+      updateHUD();
+    }
+    if(ghoAcc>=GHO_MS){
+      ghoAcc=0; tickN++;
+      stepGhosts();
+      checkCollisions();
+    }
+    if(totalDots(maze)===0){
+      level++; maze=buildMaze();
+      pac.col=7; pac.row=6; pac.dc=0; pac.dr=0;
+      ghosts.forEach((g,i)=>{ g.released=false; g.col=G_CFG[i].col; g.row=G_CFG[i].row; g.release=(i+1)*G_DELAY; });
+      tickN=0; updateHUD();
+    }
+  }
+  draw();
+  raf=requestAnimationFrame(loop);
+}
+
+// ── QUESTION SYSTEM ──────────────────────────────────────────
+function showQuestion(){
+  currentQ = qQueue[qIdx % qQueue.length]; qIdx++;
+  const fc = FASE_COLORS[currentQ.fase]||'#FF5C00';
+
+  const badge = document.getElementById('q-badge');
+  badge.textContent = currentQ.fase+' — SITUACIÓN REAL';
+  badge.style.background = fc+'22';
+  badge.style.color = fc;
+
+  document.getElementById('q-text').textContent = '💬 '+currentQ.q;
+  document.getElementById('q-text').style.borderLeftColor = fc;
+  document.getElementById('q-card').style.borderColor = fc;
+  document.getElementById('q-card').style.boxShadow = '0 0 40px '+fc+'44';
+  document.getElementById('q-feedback').className='';
+  document.getElementById('q-feedback').textContent='';
+
+  timerVal=100;
+  document.getElementById('q-timer-bar').style.width='100%';
+  document.getElementById('q-timer-bar').style.background='#00D084';
+
+  const optsEl = document.getElementById('q-opts');
+  optsEl.innerHTML='';
+  const shuffled = shuffle(currentQ.opts.map((o,i)=>({text:o,isOk:i===currentQ.ok})));
+  shuffled.forEach((opt,i)=>{
+    const btn = document.createElement('button');
+    btn.className='q-opt';
+    btn.innerHTML=`<span class="opt-letter">${['A','B','C','D'][i]}</span>${opt.text}`;
+    btn.onclick=()=>answerQ(btn, opt.isOk, optsEl);
+    optsEl.appendChild(btn);
+  });
+
+  document.getElementById('q-popup').classList.remove('hidden');
+  startQTimer();
+}
+
+function startQTimer(){
+  clearInterval(timerInterval);
+  timerVal=100;
+  timerInterval=setInterval(()=>{
+    timerVal-=(100/20);
+    const bar=document.getElementById('q-timer-bar');
+    bar.style.width=Math.max(0,timerVal)+'%';
+    bar.style.background=timerVal>55?'#00D084':timerVal>25?'#FFD600':'#FF3366';
+    if(timerVal<=0){
+      clearInterval(timerInterval);
+      timeUpQ();
+    }
+  },1000);
+}
+
+function timeUpQ(){
+  const btns=document.querySelectorAll('.q-opt');
+  btns.forEach(b=>{ b.disabled=true; b.classList.add('wrong'); });
+  const fb=document.getElementById('q-feedback');
+  fb.textContent='⏱ ¡Tiempo agotado! '+currentQ.exp;
+  fb.style.color='#CCC'; fb.className='show';
+  loseLife();
+  setTimeout(closeQuestion, 2400);
+}
+
+function answerQ(btn, isOk, container){
+  clearInterval(timerInterval);
+  const btns=container.querySelectorAll('.q-opt');
+  btns.forEach(b=>b.disabled=true);
+  const fb=document.getElementById('q-feedback');
+
+  // mark correct option always
+  const opts=container.querySelectorAll('.q-opt');
+  // Find correct by re-checking: we stored isOk on the closure
+  // We mark btn as clicked
+  btn.classList.add(isOk?'correct':'wrong');
+
+  if(isOk){
+    score+=100; correct++;
+    fb.textContent='✅ ¡Correcto! '+currentQ.exp;
+    fb.style.color='#00D084';
+  } else {
+    // highlight correct
+    btns.forEach(b=>{ if(b._isOk) b.classList.add('correct'); });
+    fb.textContent='❌ Incorrecto. '+currentQ.exp;
+    fb.style.color='#CCC';
+    loseLife();
+  }
+  btn._isOk=isOk; // not needed but harmless
+  fb.className='show';
+  updateHUD();
+
+  // find and highlight the correct button
+  if(!isOk){
+    // re-render correct highlight: we need to know which is correct
+    // Since we shuffled, we iterate and check text match
+    const correctText = currentQ.opts[currentQ.ok];
+    btns.forEach(b=>{
+      if(b.textContent.replace(/^[ABCD]/,'').trim()===correctText.trim()) b.classList.add('correct');
+    });
+  }
+
+  setTimeout(closeQuestion, isOk?1800:2500);
+}
+
+function closeQuestion(){
+  document.getElementById('q-popup').classList.add('hidden');
+  paused=false;
+}
+
+// ── CONTROLS ────────────────────────────────────────────────
+function setPacDir(dc,dr){ if(!paused){ pac.nextDc=dc; pac.nextDr=dr; } }
+
+document.addEventListener('keydown',e=>{
+  if(paused) return;
+  const m={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
+  if(m[e.key]){ e.preventDefault(); pac.nextDc=m[e.key][0]; pac.nextDr=m[e.key][1]; }
+});
+
+// ── START ────────────────────────────────────────────────────
+function startGame(){
+  initState(); updateHUD();
+  document.getElementById('ov-start').classList.add('hidden');
+  document.getElementById('ov-dead').classList.add('hidden');
+  document.getElementById('q-popup').classList.add('hidden');
+  if(raf) cancelAnimationFrame(raf);
+  lastT=performance.now();
+  raf=requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
